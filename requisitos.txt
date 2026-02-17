@@ -1,0 +1,23 @@
+# XONITY - Requirements
+
+## Dependencias Python:
+
+Windows:
+pip install flask pandas openpyxl
+
+Arch Linux:
+sudo pacman -S python-pip
+pip install flask pandas openpyxl --break-system-packages
+
+Ubuntu / Debian:
+sudo apt update
+sudo apt install python3 python3-pip -y
+pip3 install flask pandas openpyxl --break-system-packages
+
+## Cloudflare Tunnel (opcional - para acceso remoto):
+Linux: https://github.com/cloudflare/cloudflared/releases
+Arch: sudo pacman -S cloudflared
+Uso: cloudflared tunnel --url http://localhost:5000
+
+## Ejecutar:
+python start.py
