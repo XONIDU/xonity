@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XONITY - Monitor ESP32</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="2">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0f1e 0%, #1a1f2e 100%);
+            font-family: 'Orbitron', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 3.5rem;
+            letter-spacing: 5px;
+            color: #4fb6c2;
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(79, 182, 194, 0.5);
+        }
+        
+        .subtitle {
+            color: #c7a74a;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+        }
+        
+        .panel {
+            background: rgba(20, 30, 45, 0.9);
+            border: 1px solid #2a4a6a;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .status-item {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(10, 20, 30, 0.6);
+            border-radius: 10px;
+            border: 1px solid #2a4a6a;
+        }
+        
+        .label {
+            color: #8a9aa8;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .connected {
+            background: rgba(79, 182, 194, 0.2);
+            color: #4fb6c2;
+            border: 1px solid #4fb6c2;
+        }
+        
+        .disconnected {
+            background: rgba(255, 80, 80, 0.2);
+            color: #ff5050;
+            border: 1px solid #ff5050;
+        }
+        
+        .motion {
+            background: rgba(199, 167, 74, 0.2);
+            color: #c7a74a;
+            border: 1px solid #c7a74a;
+        }
+        
+        .nomotion {
+            background: rgba(140, 140, 140, 0.2);
+            color: #8a8a8a;
+            border: 1px solid #8a8a8a;
+        }
+        
+        .footer {
+            text-align: center;
+            color: #4a5a68;
+            font-size: 0.8rem;
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #1a2535;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fb6c2, #c7a74a);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        
+        .timestamp {
+            color: #6a7a8a;
+            font-size: 0.8rem;
+            font-family: monospace;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>XONITY</h1>
+        <div class="subtitle">ESP32 IR MONITOR</div>
+        
+        <div class="panel">
+            <!-- Estado de Conexión -->
+            <div class="status-item">
+                <div class="label">📡 ESTADO DE CONEXIÓN</div>
+                {% set tiempo_sin_ping = (now() - last_ping) | int %}
+                {% set conectado = tiempo_sin_ping <= ESP_TIMEOUT %}
+                
+                {% if conectado %}
+                <div class="value">
+                    <span class="badge connected">✅ CONECTADO</span>
+                </div>
+                {% else %}
+                <div class="value">
+                    <span class="badge disconnected">❌ DESCONECTADO</span>
+                </div>
+                {% endif %}
+                
+                <div style="margin-top: 15px;">
+                    <div>Último ping hace: <strong>{{ tiempo_sin_ping }}s</strong></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ (tiempo_sin_ping / ESP_TIMEOUT * 100) | round }}%"></div>
+                    </div>
+                    <div class="timestamp">Timeout: {{ ESP_TIMEOUT }}s</div>
+                </div>
+            </div>
+            
+            <!-- Estado del Sensor IR -->
+            <div class="status-item">
+                <div class="label">🚨 SENSOR INFRARROJO</div>
+                
+                {% if detected %}
+                <div class="value">
+                    <span class="badge motion">🚶 MOVIMIENTO DETECTADO</span>
+                </div>
+                {% else %}
+                <div class="value">
+                    <span class="badge nomotion">😴 SIN MOVIMIENTO</span>
+                </div>
+                {% endif %}
+                
+                <div style="margin-top: 15px;">
+                    <div>Último movimiento: <strong>{{ last_motion }}</strong></div>
+                </div>
+            </div>
+            
+            <!-- Información adicional -->
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2a4a6a;">
+                <div style="color: #6a7a8a; font-size: 0.7rem;">
+                    Actualización automática cada 2 segundos
+                </div>
+                <div style="color: #4a5a68; font-size: 0.7rem; margin-top: 5px;">
+                    Hora: {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            XONITY v1.0 - Monitoreo ESP32 con sensor IR
+        </div>
+    </div>
+</body>
+</html>
