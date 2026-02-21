@@ -1,4 +1,5 @@
-# XONITY - Requirements
+# XONITY - Requisitos
+# Darian Alberto Camacho Salas
 
 ## Dependencias Python:
 
