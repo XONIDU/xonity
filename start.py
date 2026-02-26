@@ -5,6 +5,9 @@ import smtplib
 from datetime import datetime
 import pandas as pd
 import os
+import qrcode
+from io import StringIO
+import logging
 
 app = Flask(__name__)
 
@@ -27,9 +30,26 @@ except FileNotFoundError:
 print("\n" + "="*50)
 print("🔧 XONITY - CONFIGURACIÓN DE CORREO")
 print("="*50)
-EMAIL = input("📧 Tu Gmail: ").strip()
-TOKEN = input("🔑 Token de app (16 dígitos): ").strip()
-DESTINO = input("📨 Correo destino: ").strip()
+EMAIL = input("Tu Gmail: ").strip()
+TOKEN = input("Token de app (16 dígitos): ").strip()
+DESTINO = input("Correo destino: ").strip()
+
+def generar_qr():
+    """Genera un código QR con la información de contacto"""
+    info_contacto = f"XONITY - Contacto: {EMAIL} | Creador: Darian Camacho | Repositorio: github.com/XONIDU/xonity"
+    
+    qr = qrcode.QRCode(
+        version=1,
+        box_size=2,
+        border=1
+    )
+    qr.add_data(info_contacto)
+    qr.make(fit=True)
+    
+    # Crear imagen QR en ASCII para terminal
+    qr_ascii = StringIO()
+    qr.print_ascii(out=qr_ascii, invert=True)
+    return qr_ascii.getvalue()
 
 def enviar_correo(asunto, mensaje):
     try:
@@ -38,10 +58,8 @@ def enviar_correo(asunto, mensaje):
         server.login(EMAIL, TOKEN)
         server.sendmail(EMAIL, DESTINO, f"Subject: {asunto}\n\n{mensaje}")
         server.quit()
-        print(f"📧 Correo enviado: {asunto}")
         return True
     except Exception as e:
-        print(f"❌ Error enviando correo: {e}")
         return False
 
 # --- Guardar Excel ---
@@ -51,9 +69,8 @@ def registrar(tipo, estado, hora):
         nuevo_registro = pd.DataFrame([{"Tipo": tipo, "Estado": estado, "Hora": hora}])
         df = pd.concat([df, nuevo_registro], ignore_index=True)
         df.to_excel(EXCEL_FILE, index=False)
-        print(f"📊 Registro guardado: {tipo} - {estado}")
     except Exception as e:
-        print("❌ Error guardando Excel:", e)
+        pass
 
 # --- Monitor conexión ---
 def monitor():
@@ -73,18 +90,15 @@ def monitor():
             hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             if not conectado:
-                # Enviar correo si ha pasado suficiente tiempo
                 if tiempo_actual - ultimo_correo_desconectado > COOLDOWN_CORREO:
                     enviar_correo("⚠️ ESP32 Desconectado", f"El ESP32 se desconectó a las {hora}")
                     ultimo_correo_desconectado = tiempo_actual
                 registrar("Conexión", "Desconectado", hora)
-                print(f"⚠️ Desconexión detectada a las {hora}")
             else:
                 if tiempo_actual - ultimo_correo_reconectado > COOLDOWN_CORREO:
                     enviar_correo("🔄 ESP32 Reconectado", f"El ESP32 se reconectó a las {hora}")
                     ultimo_correo_reconectado = tiempo_actual
                 registrar("Conexión", "Reconectado", hora)
-                print(f"🔄 Reconectado: {hora}")
         
         time.sleep(1)
 
@@ -101,8 +115,7 @@ def index():
 def ping():
     global last_ping, detected
     last_ping = time.time()
-    detected = False  # reset movimiento
-    print(f"📶 Ping recibido - {datetime.now().strftime('%H:%M:%S')}")
+    detected = False
     return jsonify({"status": "ok"})
 
 @app.route('/motion', methods=['POST'])
@@ -112,13 +125,9 @@ def motion():
     detected = True
     last_motion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Registrar en Excel
     registrar("Movimiento", "Detectado", last_motion)
+    enviar_correo("Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
     
-    # Enviar correo
-    enviar_correo("🚨 Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
-    
-    print(f"🚶 Movimiento detectado a las {last_motion}")
     return jsonify({"status": "motion_received"})
 
 @app.route('/registrar_esp32', methods=['POST'])
@@ -127,7 +136,6 @@ def registrar_esp32():
     if data:
         mac = data.get('mac', 'desconocida')
         ip = data.get('ip', 'desconocida')
-        print(f"✅ ESP32 registrado - MAC: {mac}, IP: {ip}")
         return jsonify({"estado": "ok", "mensaje": "Registro exitoso"})
     return jsonify({"estado": "error", "mensaje": "Datos inválidos"})
 
@@ -151,21 +159,46 @@ def utility_processor():
     return dict(now=now)
 
 if __name__ == '__main__':
-    print("\n" + "="*50)
-    print("🚀 XONITY - SERVIDOR DE MONITOREO")
+    # Limpiar pantalla
+    os.system('clear' if os.name == 'posix' else 'cls')
+    
+    print("╔" + "═"*50 + "╗")
+    print("║" + " "*18 + "XONITY v1.0" + " "*19 + "║")
+    print("╚" + "═"*50 + "╝")
+    print()
+    
+    # Generar y mostrar QR code
+    print("ESCANEA EL CÓDIGO QR PARA MÁS INFORMACIÓN")
+    print()
+    print(generar_qr())
+    print()
+    print("Sistema de monitoreo IoT - Seguridad Residencial")
     print("="*50)
-    print(f"📧 Correo configurado: {EMAIL}")
-    print(f"📨 Enviando a: {DESTINO}")
-    print(f"📊 Excel: {EXCEL_FILE}")
-    print("="*50)
+    print("http://localhost:5050")
+    print()
+    
+    # Silenciar Flask COMPLETAMENTE
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+    
+    # Redirigir stdout para silenciar aún más
+    import sys
+    from contextlib import contextmanager
+    
+    @contextmanager
+    def suppress_output():
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
     
     # Iniciar monitor en segundo plano
     monitor_thread = threading.Thread(target=monitor, daemon=True)
     monitor_thread.start()
-    print("📡 Monitor de conexión iniciado")
     
-    # Iniciar servidor
-    print("🌐 Servidor web: http://localhost:5000")
-    print("="*50 + "\n")
-    
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    # Iniciar servidor CON TODO SILENCIADO
+    with suppress_output():
+        app.run(host="0.0.0.0", port=5000, debug=False)
