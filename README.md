@@ -1,5 +1,6 @@
 # XONITY - Monitor con ESP32
 **Darian Alberto Camacho Salas**
+**Oscar Rodolfo Barragan Perez**
 
 Sistema de monitoreo con sensor de movimiento que envía alertas por correo y registra eventos en Excel.
 
@@ -201,7 +202,8 @@ Al iniciar el servidor, se muestra un código QR con información de contacto y 
 - **Email:** xonidu@gmail.com
 - **Repositorio:** https://github.com/XONIDU/xonity
 - **Creador:** Darian Alberto Camacho Salas
-- **Institución:** FESC-UNAM
+**Frontend:** Oscar Rodolfo Barragan Perez
+
 
 ---
 
