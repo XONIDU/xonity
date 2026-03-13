@@ -1,6 +1,7 @@
 # XONITY - Monitor con ESP32
 **Darian Alberto Camacho Salas**
 **Oscar Rodolfo Barragan Perez**
+**Raphael Martinez Chavez**
 
 Sistema de monitoreo con sensor de movimiento que envía alertas por correo y registra eventos en Excel.
 
