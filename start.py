@@ -1,204 +1,323 @@
-from flask import Flask, request, jsonify, render_template
-import threading
-import time
-import smtplib
-from datetime import datetime
-import pandas as pd
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+XONITY 2026 - Lanzador Universal para Sistema de Monitoreo con ESP32
+Este script verifica dependencias y ejecuta xonity.py
+Desarrollado por: Darian Alberto Camacho Salas
+#Somos XONINDU
+"""
+
+import subprocess
+import sys
 import os
-import qrcode
-from io import StringIO
-import logging
+import platform
+import shutil
+import importlib.util
+import time
 
-app = Flask(__name__)
-
-# --- Variables globales ---
-last_ping = 0
-ESP_TIMEOUT = 15  # segundos para desconexión
-connected = False
-detected = False
-last_motion = "Nunca"
-
-# --- Excel ---
-EXCEL_FILE = "casa1.xlsx"
-try:
-    df = pd.read_excel(EXCEL_FILE)
-except FileNotFoundError:
-    df = pd.DataFrame(columns=["Tipo", "Estado", "Hora"])
-    df.to_excel(EXCEL_FILE, index=False)
-
-# --- Pedir credenciales de correo al iniciar ---
-print("\n" + "="*50)
-print("🔧 XONITY - CONFIGURACIÓN DE CORREO")
-print("="*50)
-EMAIL = input("Tu Gmail: ").strip()
-TOKEN = input("Token de app (16 dígitos): ").strip()
-DESTINO = input("Correo destino: ").strip()
-
-def generar_qr():
-    """Genera un código QR con la información de contacto"""
-    info_contacto = f"XONITY - Contacto: {EMAIL} | Creador: Darian Camacho | Repositorio: github.com/XONIDU/xonity"
+# Colores para terminal
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    END = '\033[0m'
+    BOLD = '\033[1m'
     
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=2,
-        border=1
-    )
-    qr.add_data(info_contacto)
-    qr.make(fit=True)
-    
-    # Crear imagen QR en ASCII para terminal
-    qr_ascii = StringIO()
-    qr.print_ascii(out=qr_ascii, invert=True)
-    return qr_ascii.getvalue()
-
-def enviar_correo(asunto, mensaje):
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(EMAIL, TOKEN)
-        server.sendmail(EMAIL, DESTINO, f"Subject: {asunto}\n\n{mensaje}")
-        server.quit()
+    @staticmethod
+    def supports_color():
+        """Verifica si la terminal soporta colores"""
+        if platform.system() == 'Windows':
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                return kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+            except:
+                return False
         return True
-    except Exception as e:
+
+# Desactivar colores si no hay soporte
+if not Colors.supports_color():
+    for attr in dir(Colors):
+        if not attr.startswith('_') and attr != 'supports_color':
+            setattr(Colors, attr, '')
+
+def get_system():
+    """Detecta el sistema operativo"""
+    return platform.system().lower()
+
+def get_linux_distro():
+    """Detecta la distribucion de Linux"""
+    if get_system() != 'linux':
+        return None
+    
+    try:
+        if os.path.exists('/etc/os-release'):
+            with open('/etc/os-release', 'r') as f:
+                content = f.read().lower()
+                if 'ubuntu' in content:
+                    return 'ubuntu'
+                elif 'debian' in content:
+                    return 'debian'
+                elif 'fedora' in content:
+                    return 'fedora'
+                elif 'centos' in content:
+                    return 'centos'
+                elif 'arch' in content:
+                    return 'arch'
+                elif 'manjaro' in content:
+                    return 'manjaro'
+                elif 'mint' in content:
+                    return 'mint'
+        return 'linux-generico'
+    except:
+        return 'linux-generico'
+
+def get_python_command():
+    """Obtiene el comando Python correcto"""
+    if get_system() == 'windows':
+        return ['python']
+    else:
+        try:
+            subprocess.run(['python3', '--version'], capture_output=True, check=True)
+            return ['python3']
+        except:
+            return ['python']
+
+def print_banner():
+    """Muestra el banner de XONITY"""
+    sistema = get_system()
+    distro = get_linux_distro()
+    
+    sistema_texto = {
+        'windows': 'WINDOWS',
+        'linux': f'LINUX ({distro.upper()})' if distro else 'LINUX',
+        'darwin': 'MACOS'
+    }.get(sistema, 'DESCONOCIDO')
+    
+    banner = f"""
+{Colors.BLUE}{Colors.BOLD}═══════════════════════════════════════════════════════════
+                    XONITY 2026 v1.0                    
+              Sistema de Monitoreo con ESP32            
+              Detección de movimiento + Alertas          
+              Seguridad Residencial de Bajo Costo        
+                                                          
+              Sistema detectado: {sistema_texto}            
+                                                          
+              Desarrollado por: Darian Alberto            
+              Camacho Salas                               
+              #Somos XONINDU
+═══════════════════════════════════════════════════════════{Colors.END}
+    """
+    print(banner)
+
+def check_python():
+    """Verifica Python instalado"""
+    try:
+        cmd = get_python_command() + ['--version']
+        subprocess.run(cmd, capture_output=True, check=True)
+        return True
+    except:
         return False
 
-# --- Guardar Excel ---
-def registrar(tipo, estado, hora):
-    global df
+def check_python_module(module_name):
+    """Verifica si un modulo de Python esta instalado"""
+    return importlib.util.find_spec(module_name) is not None
+
+def check_dependencies():
+    """Verifica las dependencias de Python necesarias"""
+    print(f"\n{Colors.BOLD}Verificando dependencias de Python...{Colors.END}")
+    
+    dependencias = [
+        ('flask', 'flask', 'Servidor web', 'flask'),
+        ('pandas', 'pandas', 'Manejo de Excel', 'pandas'),
+        ('openpyxl', 'openpyxl', 'Lectura/escritura Excel', 'openpyxl'),
+        ('qrcode', 'qrcode', 'Generación de QR', 'qrcode'),
+    ]
+    
+    faltantes = []
+    
+    for modulo, paquete, desc, import_name in dependencias:
+        if check_python_module(import_name):
+            print(f"{Colors.GREEN}  ✓ {modulo}: Instalado{Colors.END}")
+        else:
+            print(f"{Colors.YELLOW}  ✗ {modulo}: No instalado{Colors.END}")
+            faltantes.append(paquete)
+    
+    return faltantes
+
+def install_dependencies(faltantes):
+    """Instala las dependencias faltantes"""
+    if not faltantes:
+        return True
+    
+    print(f"\n{Colors.BOLD}Instalando dependencias faltantes...{Colors.END}")
+    print(f"Paquetes: {', '.join(faltantes)}")
+    
+    sistema = get_system()
+    distro = get_linux_distro()
+    
+    # Construir comando de instalacion
+    cmd = [sys.executable, '-m', 'pip', 'install']
+    
+    # Agregar opciones segun sistema
+    if sistema == 'linux':
+        if distro in ['arch', 'manjaro', 'fedora']:
+            cmd.append('--break-system-packages')
+            print(f"{Colors.YELLOW}Usando --break-system-packages para {distro}{Colors.END}")
+        else:
+            cmd.append('--user')
+    elif sistema == 'darwin':
+        cmd.append('--user')
+    
+    cmd.extend(faltantes)
+    
+    # Intentar instalacion
     try:
-        nuevo_registro = pd.DataFrame([{"Tipo": tipo, "Estado": estado, "Hora": hora}])
-        df = pd.concat([df, nuevo_registro], ignore_index=True)
-        df.to_excel(EXCEL_FILE, index=False)
-    except Exception as e:
-        pass
-
-# --- Monitor conexión ---
-def monitor():
-    global last_ping, connected
-    estado_anterior = False
-    ultimo_correo_desconectado = 0
-    ultimo_correo_reconectado = 0
-    COOLDOWN_CORREO = 300  # 5 minutos entre correos del mismo tipo
-    
-    while True:
-        tiempo_sin_ping = time.time() - last_ping
-        conectado = tiempo_sin_ping <= ESP_TIMEOUT
-        tiempo_actual = time.time()
-
-        if conectado != estado_anterior:
-            estado_anterior = conectado
-            hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            if not conectado:
-                if tiempo_actual - ultimo_correo_desconectado > COOLDOWN_CORREO:
-                    enviar_correo("⚠️ ESP32 Desconectado", f"El ESP32 se desconectó a las {hora}")
-                    ultimo_correo_desconectado = tiempo_actual
-                registrar("Conexión", "Desconectado", hora)
-            else:
-                if tiempo_actual - ultimo_correo_reconectado > COOLDOWN_CORREO:
-                    enviar_correo("🔄 ESP32 Reconectado", f"El ESP32 se reconectó a las {hora}")
-                    ultimo_correo_reconectado = tiempo_actual
-                registrar("Conexión", "Reconectado", hora)
+        print(f"Ejecutando: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        print(f"{Colors.GREEN}✓ Dependencias instaladas correctamente{Colors.END}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"{Colors.RED}Error instalando dependencias: {e}{Colors.END}")
+        print(f"\n{Colors.YELLOW}Intentando metodo alternativo...{Colors.END}")
         
+        # Segundo intento: solo --user
+        try:
+            cmd2 = [sys.executable, '-m', 'pip', 'install', '--user'] + faltantes
+            subprocess.run(cmd2, check=True)
+            print(f"{Colors.GREEN}✓ Instaladas con --user{Colors.END}")
+            return True
+        except:
+            print(f"{Colors.RED}✗ Fallo la instalacion{Colors.END}")
+            print(f"\nInstala manualmente:")
+            print(f"  pip install {' '.join(faltantes)}")
+            return False
+
+def verificar_servidor():
+    """Verifica si existe el archivo xonity.py"""
+    if not os.path.exists('xonity.py'):
+        print(f"\n{Colors.RED}Error: No se encuentra xonity.py{Colors.END}")
+        print("Asegurate de que xonity.py esta en el mismo directorio")
+        return False
+    return True
+
+def verificar_importaciones():
+    """Verifica que todas las importaciones necesarias funcionen"""
+    print(f"\n{Colors.BOLD}Verificando importaciones...{Colors.END}")
+    
+    modulos = [
+        ('flask', 'Flask'),
+        ('pandas', 'Pandas'),
+        ('openpyxl', 'OpenPyXL'),
+        ('qrcode', 'QR Code'),
+    ]
+    
+    todos_ok = True
+    for modulo, nombre in modulos:
+        try:
+            __import__(modulo)
+            print(f"{Colors.GREEN}  ✓ {nombre}: OK{Colors.END}")
+        except ImportError:
+            print(f"{Colors.RED}  ✗ {nombre}: FALLO{Colors.END}")
+            todos_ok = False
+    
+    return todos_ok
+
+def main():
+    """Funcion principal"""
+    # Limpiar pantalla
+    if get_system() == 'windows':
+        os.system('cls')
+    else:
+        os.system('clear')
+    
+    # Mostrar banner
+    print_banner()
+    
+    # Verificar Python
+    if not check_python():
+        print(f"\n{Colors.RED}Error: Python no esta instalado{Colors.END}")
+        print("Instala Python desde: https://www.python.org/downloads/")
+        input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
+        return
+    
+    python_version = subprocess.run(get_python_command() + ['--version'], 
+                                   capture_output=True, text=True).stdout.strip()
+    print(f"{Colors.BOLD}Python:{Colors.END} {python_version}")
+    print(f"{Colors.BOLD}Directorio:{Colors.END} {os.path.dirname(os.path.abspath(__file__))}")
+    
+    # Verificar dependencias
+    faltantes = check_dependencies()
+    
+    if faltantes:
+        print(f"\n{Colors.YELLOW}Se requieren dependencias adicionales{Colors.END}")
+        respuesta = input("¿Instalar automaticamente? (s/n): ")
+        
+        if respuesta.lower() == 's':
+            if not install_dependencies(faltantes):
+                print(f"\n{Colors.RED}No se pudieron instalar las dependencias{Colors.END}")
+                input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
+                return
+        else:
+            print(f"\nPuedes instalarlas manualmente con:")
+            print("  pip install flask pandas openpyxl qrcode")
+            input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
+            return
+    
+    # Verificar que existe xonity.py
+    if not verificar_servidor():
+        input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
+        return
+    
+    # Verificar que las importaciones funcionan
+    print(f"\n{Colors.BOLD}Verificando que todo funcione...{Colors.END}")
+    if not verificar_importaciones():
+        print(f"\n{Colors.RED}Error: No se pueden importar las dependencias necesarias{Colors.END}")
+        print("El programa no puede continuar sin estas dependencias")
+        input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
+        return
+    
+    print(f"\n{Colors.BOLD}Iniciando XONITY...{Colors.END}")
+    print(f"{Colors.BOLD}Para salir en cualquier momento:{Colors.END} Ctrl+C")
+    print("-" * 60)
+    
+    # EJECUTAR xonity.py
+    try:
+        python_cmd = get_python_command()
+        cmd = python_cmd + ['xonity.py']
+        print(f"Ejecutando: {' '.join(cmd)}")
+        print("-" * 60)
         time.sleep(1)
-
-# --- Rutas ---
-@app.route('/')
-def index():
-    return render_template('index.html', 
-                         last_ping=last_ping,
-                         ESP_TIMEOUT=ESP_TIMEOUT,
-                         detected=detected,
-                         last_motion=last_motion)
-
-@app.route('/ping', methods=['POST'])
-def ping():
-    global last_ping, detected
-    last_ping = time.time()
-    detected = False
-    return jsonify({"status": "ok"})
-
-@app.route('/motion', methods=['POST'])
-def motion():
-    global last_ping, last_motion, detected
-    last_ping = time.time()
-    detected = True
-    last_motion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Ejecutar xonity.py
+        resultado = subprocess.run(cmd)
+        
+        if resultado.returncode != 0:
+            print(f"\n{Colors.RED}Error: xonity.py termino con codigo {resultado.returncode}{Colors.END}")
+            
+    except FileNotFoundError:
+        print(f"\n{Colors.RED}Error: No se encuentra xonity.py{Colors.END}")
+    except KeyboardInterrupt:
+        print(f"\n{Colors.YELLOW}Servidor detenido por el usuario{Colors.END}")
+    except Exception as e:
+        print(f"\n{Colors.RED}Error ejecutando xonity.py: {e}{Colors.END}")
     
-    registrar("Movimiento", "Detectado", last_motion)
-    enviar_correo("Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
+    print(f"\n{Colors.BLUE}Gracias por usar XONITY 2026{Colors.END}")
+    print(f"{Colors.BLUE}Desarrollado por Darian Alberto Camacho Salas{Colors.END}")
+    print(f"{Colors.BLUE}#Somos XONINDU{Colors.END}")
     
-    return jsonify({"status": "motion_received"})
-
-@app.route('/registrar_esp32', methods=['POST'])
-def registrar_esp32():
-    data = request.json
-    if data:
-        mac = data.get('mac', 'desconocida')
-        ip = data.get('ip', 'desconocida')
-        return jsonify({"estado": "ok", "mensaje": "Registro exitoso"})
-    return jsonify({"estado": "error", "mensaje": "Datos inválidos"})
-
-@app.route('/estado_cluster', methods=['GET'])
-def estado_cluster():
-    tiempo_sin_ping = time.time() - last_ping
-    conectado = tiempo_sin_ping <= ESP_TIMEOUT
-    
-    return jsonify({
-        "estado": "activo",
-        "timestamp": time.time(),
-        "ultimo_ping": last_ping,
-        "conectado": conectado,
-        "tiempo_sin_ping": round(tiempo_sin_ping, 2)
-    })
-
-@app.context_processor
-def utility_processor():
-    def now():
-        return datetime.now()
-    return dict(now=now)
+    # Pausa al final
+    if get_system() != 'windows':
+        input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
 
 if __name__ == '__main__':
-    # Limpiar pantalla
-    os.system('clear' if os.name == 'posix' else 'cls')
-    
-    print("╔" + "═"*50 + "╗")
-    print("║" + " "*18 + "XONITY v1.0" + " "*19 + "║")
-    print("╚" + "═"*50 + "╝")
-    print()
-    
-    # Generar y mostrar QR code
-    print("ESCANEA EL CÓDIGO QR PARA MÁS INFORMACIÓN")
-    print()
-    print(generar_qr())
-    print()
-    print("Sistema de monitoreo IoT - Seguridad Residencial")
-    print("="*50)
-    print("http://localhost:5050")
-    print()
-    
-    # Silenciar Flask COMPLETAMENTE
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
-    
-    # Redirigir stdout para silenciar aún más
-    import sys
-    from contextlib import contextmanager
-    
-    @contextmanager
-    def suppress_output():
-        with open(os.devnull, 'w') as devnull:
-            old_stdout = sys.stdout
-            sys.stdout = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
-    
-    # Iniciar monitor en segundo plano
-    monitor_thread = threading.Thread(target=monitor, daemon=True)
-    monitor_thread.start()
-    
-    # Iniciar servidor CON TODO SILENCIADO
-    with suppress_output():
-        app.run(host="0.0.0.0", port=5000, debug=False)
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{Colors.YELLOW}Saliendo...{Colors.END}")
+    except Exception as e:
+        print(f"\n{Colors.RED}Error inesperado: {e}{Colors.END}")
+        input(f"\n{Colors.YELLOW}Presiona Enter para salir...{Colors.END}")
