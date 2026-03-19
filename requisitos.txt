@@ -21,5 +21,8 @@ Arch: sudo pacman -S cloudflared
 Uso: cloudflared tunnel --url http://localhost:5000
 
 ## Ejecutar:
-python start.pyy
+python start.py
 
+##o
+
+python3 start.py
