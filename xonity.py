@@ -13,8 +13,8 @@ import socket
 app = Flask(__name__)
 
 # --- Variables globales ---
-last_ping = 0  # timestamp (time.time())
-ESP_TIMEOUT = 15  # segundos para desconexión
+last_ping = 0
+ESP_TIMEOUT = 15
 connected = False
 detected = False
 last_motion = "Nunca"
@@ -27,16 +27,19 @@ except FileNotFoundError:
     df = pd.DataFrame(columns=["Tipo", "Estado", "Hora"])
     df.to_excel(EXCEL_FILE, index=False)
 
-# --- Pedir credenciales de correo al iniciar ---
+# --- Credenciales de correo FIJAS ---
+EMAIL = "xonidu@gmail.com"
+TOKEN = "rohhwgfauvfkyidv"
+DESTINO = "xonidu@gmail.com"
+
 print("\n" + "="*50)
-print("🔧 XONITY - CONFIGURACIÓN DE CORREO")
+print("🔧 XONITY - CORREO CONFIGURADO")
 print("="*50)
-EMAIL = input("Tu Gmail: ").strip()
-TOKEN = input("Token de app (16 dígitos): ").strip()
-DESTINO = input("Correo destino: ").strip()
+print(f"📧 Cuenta: {EMAIL}")
+print(f"📨 Enviando a: {DESTINO}")
+print("="*50)
 
 def obtener_ip_local():
-    """Obtiene la IP local de la máquina"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -47,28 +50,26 @@ def obtener_ip_local():
         return "127.0.0.1"
 
 def generar_qr_con_url(url):
-    """Genera un código QR con la URL de acceso"""
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=2,
-        border=1
-    )
+    qr = qrcode.QRCode(version=1, box_size=2, border=1)
     qr.add_data(url)
     qr.make(fit=True)
-    
     qr_ascii = StringIO()
     qr.print_ascii(out=qr_ascii, invert=True)
     return qr_ascii.getvalue()
 
 def enviar_correo(asunto, mensaje):
+    """Envía correo y muestra resultado en terminal"""
     try:
+        print(f"📧 [CORREO] Intentando enviar: {asunto}")
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(EMAIL, TOKEN)
         server.sendmail(EMAIL, DESTINO, f"Subject: {asunto}\n\n{mensaje}")
         server.quit()
+        print(f"✅ [CORREO] Enviado correctamente: {asunto}")
         return True
     except Exception as e:
+        print(f"❌ [CORREO] Error: {e}")
         return False
 
 def registrar(tipo, estado, hora):
@@ -77,31 +78,45 @@ def registrar(tipo, estado, hora):
         nuevo_registro = pd.DataFrame([{"Tipo": tipo, "Estado": estado, "Hora": hora}])
         df = pd.concat([df, nuevo_registro], ignore_index=True)
         df.to_excel(EXCEL_FILE, index=False)
+        print(f"📊 [EXCEL] Registrado: {tipo} - {estado} a las {hora}")
     except Exception as e:
-        pass
+        print(f"❌ [EXCEL] Error: {e}")
 
 def monitor():
+    """Monitorea la conexión del ESP32 y muestra estado en terminal"""
     global last_ping, connected
     estado_anterior = False
     ultimo_correo_desconectado = 0
     ultimo_correo_reconectado = 0
     COOLDOWN_CORREO = 300
     
+    print("📡 [MONITOR] Iniciado. Esperando pings del ESP32...")
+    
     while True:
         tiempo_sin_ping = time.time() - last_ping
         conectado = tiempo_sin_ping <= ESP_TIMEOUT
         tiempo_actual = time.time()
+
+        # Mostrar estado cada 10 segundos (solo si hay cambios o para debug)
+        if conectado:
+            if tiempo_sin_ping > 5:  # Solo mostrar si lleva más de 5s sin ping
+                pass  # Silencioso para no llenar terminal
+        else:
+            if int(tiempo_sin_ping) % 5 == 0:  # Mostrar cada 5s cuando está desconectado
+                print(f"⚠️ [MONITOR] Sin ping por {int(tiempo_sin_ping)}s | Desconectado")
 
         if conectado != estado_anterior:
             estado_anterior = conectado
             hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             if not conectado:
+                print(f"🔴 [MONITOR] ¡DESCONEXIÓN detectada! Último ping hace {tiempo_sin_ping:.0f}s")
                 if tiempo_actual - ultimo_correo_desconectado > COOLDOWN_CORREO:
                     enviar_correo("⚠️ ESP32 Desconectado", f"El ESP32 se desconectó a las {hora}")
                     ultimo_correo_desconectado = tiempo_actual
                 registrar("Conexión", "Desconectado", hora)
             else:
+                print(f"🟢 [MONITOR] ¡RECONEXIÓN! ESP32 activo nuevamente")
                 if tiempo_actual - ultimo_correo_reconectado > COOLDOWN_CORREO:
                     enviar_correo("🔄 ESP32 Reconectado", f"El ESP32 se reconectó a las {hora}")
                     ultimo_correo_reconectado = tiempo_actual
@@ -123,6 +138,8 @@ def ping():
     global last_ping, detected
     last_ping = time.time()
     detected = False
+    hora = datetime.now().strftime("%H:%M:%S")
+    print(f"📶 [PING] Recibido a las {hora}")
     return jsonify({"status": "ok"})
 
 @app.route('/motion', methods=['POST'])
@@ -131,6 +148,8 @@ def motion():
     last_ping = time.time()
     detected = True
     last_motion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    print(f"🚨 [MOVIMIENTO] ¡DETECTADO! a las {last_motion}")
     
     registrar("Movimiento", "Detectado", last_motion)
     enviar_correo("🚨 Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
@@ -143,6 +162,7 @@ def registrar_esp32():
     if data:
         mac = data.get('mac', 'desconocida')
         ip = data.get('ip', 'desconocida')
+        print(f"📱 [ESP32] Registrado - MAC: {mac}, IP: {ip}")
         return jsonify({"estado": "ok", "mensaje": "Registro exitoso"})
     return jsonify({"estado": "error", "mensaje": "Datos inválidos"})
 
@@ -187,25 +207,19 @@ if __name__ == '__main__':
     print("🔒 Sistema de monitoreo IoT - Seguridad Residencial")
     print("="*50)
     print()
+    print("📡 MONITOR EN TERMINAL ACTIVO:")
+    print("   - Esperando pings del ESP32...")
+    print("   - Los eventos se mostrarán aquí en tiempo real")
+    print("="*50)
+    print()
     
+    # NO silenciar Flask para ver logs importantes
     log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+    log.setLevel(logging.WARNING)  # Solo mostrar warnings y errores
     
-    import sys
-    from contextlib import contextmanager
-    
-    @contextmanager
-    def suppress_output():
-        with open(os.devnull, 'w') as devnull:
-            old_stdout = sys.stdout
-            sys.stdout = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
-    
+    # Iniciar monitor en segundo plano
     monitor_thread = threading.Thread(target=monitor, daemon=True)
     monitor_thread.start()
     
-    with suppress_output():
-        app.run(host="0.0.0.0", port=5000, debug=False)
+    # Iniciar servidor (con logs mínimos)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
