@@ -9,6 +9,8 @@ import qrcode
 from io import StringIO
 import logging
 import socket
+from email.mime.text import MIMEText
+from email.header import Header
 
 app = Flask(__name__)
 
@@ -27,13 +29,16 @@ except FileNotFoundError:
     df = pd.DataFrame(columns=["Tipo", "Estado", "Hora"])
     df.to_excel(EXCEL_FILE, index=False)
 
-# --- Credenciales de correo FIJAS ---
-EMAIL = "xonidu@gmail.com"
-TOKEN = "rohhwgfauvfkyidv"
-DESTINO = "xonidu@gmail.com"
+# --- Pedir credenciales de correo al iniciar ---
+print("\n" + "="*50)
+print("🔧 XONITY - CONFIGURACIÓN DE CORREO")
+print("="*50)
+EMAIL = input("📧 Tu Gmail: ").strip()
+TOKEN = input("🔑 Token de app (16 dígitos): ").strip()
+DESTINO = input("📨 Correo destino: ").strip()
 
 print("\n" + "="*50)
-print("🔧 XONITY - CORREO CONFIGURADO")
+print("✅ CORREO CONFIGURADO")
 print("="*50)
 print(f"📧 Cuenta: {EMAIL}")
 print(f"📨 Enviando a: {DESTINO}")
@@ -58,14 +63,22 @@ def generar_qr_con_url(url):
     return qr_ascii.getvalue()
 
 def enviar_correo(asunto, mensaje):
-    """Envía correo y muestra resultado en terminal"""
+    """Envía correo con soporte UTF-8 (tildes y caracteres especiales)"""
     try:
         print(f"📧 [CORREO] Intentando enviar: {asunto}")
+        
+        # Crear mensaje con codificación UTF-8
+        msg = MIMEText(mensaje, 'plain', 'utf-8')
+        msg['Subject'] = Header(asunto, 'utf-8')
+        msg['From'] = EMAIL
+        msg['To'] = DESTINO
+        
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(EMAIL, TOKEN)
-        server.sendmail(EMAIL, DESTINO, f"Subject: {asunto}\n\n{mensaje}")
+        server.send_message(msg)
         server.quit()
+        
         print(f"✅ [CORREO] Enviado correctamente: {asunto}")
         return True
     except Exception as e:
@@ -97,14 +110,6 @@ def monitor():
         conectado = tiempo_sin_ping <= ESP_TIMEOUT
         tiempo_actual = time.time()
 
-        # Mostrar estado cada 10 segundos (solo si hay cambios o para debug)
-        if conectado:
-            if tiempo_sin_ping > 5:  # Solo mostrar si lleva más de 5s sin ping
-                pass  # Silencioso para no llenar terminal
-        else:
-            if int(tiempo_sin_ping) % 5 == 0:  # Mostrar cada 5s cuando está desconectado
-                print(f"⚠️ [MONITOR] Sin ping por {int(tiempo_sin_ping)}s | Desconectado")
-
         if conectado != estado_anterior:
             estado_anterior = conectado
             hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -112,13 +117,15 @@ def monitor():
             if not conectado:
                 print(f"🔴 [MONITOR] ¡DESCONEXIÓN detectada! Último ping hace {tiempo_sin_ping:.0f}s")
                 if tiempo_actual - ultimo_correo_desconectado > COOLDOWN_CORREO:
-                    enviar_correo("⚠️ ESP32 Desconectado", f"El ESP32 se desconectó a las {hora}")
+                    enviar_correo("ALERTA: ESP32 Desconectado", 
+                                 f"El ESP32 se desconectó a las {hora}")
                     ultimo_correo_desconectado = tiempo_actual
                 registrar("Conexión", "Desconectado", hora)
             else:
                 print(f"🟢 [MONITOR] ¡RECONEXIÓN! ESP32 activo nuevamente")
                 if tiempo_actual - ultimo_correo_reconectado > COOLDOWN_CORREO:
-                    enviar_correo("🔄 ESP32 Reconectado", f"El ESP32 se reconectó a las {hora}")
+                    enviar_correo("ALERTA: ESP32 Reconectado", 
+                                 f"El ESP32 se reconectó a las {hora}")
                     ultimo_correo_reconectado = tiempo_actual
                 registrar("Conexión", "Reconectado", hora)
         
@@ -152,7 +159,8 @@ def motion():
     print(f"🚨 [MOVIMIENTO] ¡DETECTADO! a las {last_motion}")
     
     registrar("Movimiento", "Detectado", last_motion)
-    enviar_correo("🚨 Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
+    enviar_correo("ALERTA: Movimiento detectado", 
+                 f"Se detectó movimiento en el sensor IR a las {last_motion}")
     
     return jsonify({"status": "motion_received"})
 
@@ -213,13 +221,10 @@ if __name__ == '__main__':
     print("="*50)
     print()
     
-    # NO silenciar Flask para ver logs importantes
     log = logging.getLogger('werkzeug')
-    log.setLevel(logging.WARNING)  # Solo mostrar warnings y errores
+    log.setLevel(logging.WARNING)
     
-    # Iniciar monitor en segundo plano
     monitor_thread = threading.Thread(target=monitor, daemon=True)
     monitor_thread.start()
     
-    # Iniciar servidor (con logs mínimos)
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
