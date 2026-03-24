@@ -13,7 +13,7 @@ import socket
 app = Flask(__name__)
 
 # --- Variables globales ---
-last_ping = 0
+last_ping = 0  # timestamp (time.time())
 ESP_TIMEOUT = 15  # segundos para desconexión
 connected = False
 detected = False
@@ -38,7 +38,6 @@ DESTINO = input("Correo destino: ").strip()
 def obtener_ip_local():
     """Obtiene la IP local de la máquina"""
     try:
-        # Crear un socket temporal para obtener la IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
@@ -57,7 +56,6 @@ def generar_qr_con_url(url):
     qr.add_data(url)
     qr.make(fit=True)
     
-    # Crear imagen QR en ASCII para terminal
     qr_ascii = StringIO()
     qr.print_ascii(out=qr_ascii, invert=True)
     return qr_ascii.getvalue()
@@ -73,7 +71,6 @@ def enviar_correo(asunto, mensaje):
     except Exception as e:
         return False
 
-# --- Guardar Excel ---
 def registrar(tipo, estado, hora):
     global df
     try:
@@ -83,13 +80,12 @@ def registrar(tipo, estado, hora):
     except Exception as e:
         pass
 
-# --- Monitor conexión ---
 def monitor():
     global last_ping, connected
     estado_anterior = False
     ultimo_correo_desconectado = 0
     ultimo_correo_reconectado = 0
-    COOLDOWN_CORREO = 300  # 5 minutos entre correos del mismo tipo
+    COOLDOWN_CORREO = 300
     
     while True:
         tiempo_sin_ping = time.time() - last_ping
@@ -170,10 +166,8 @@ def utility_processor():
     return dict(now=now)
 
 if __name__ == '__main__':
-    # Limpiar pantalla
     os.system('clear' if os.name == 'posix' else 'cls')
     
-    # Obtener IP local
     IP_LOCAL = obtener_ip_local()
     URL_ACCESO = f"http://{IP_LOCAL}:5000"
     
@@ -182,12 +176,10 @@ if __name__ == '__main__':
     print("╚" + "═"*50 + "╝")
     print()
     
-    # Mostrar URL de acceso
     print("🌐 ACCESO A LA INTERFAZ WEB:")
     print(f"   Local: {URL_ACCESO}")
     print()
     
-    # Generar y mostrar QR code con la URL
     print("📱 ESCANEA ESTE CÓDIGO QR PARA ACCEDER DESDE TU MÓVIL:")
     print()
     print(generar_qr_con_url(URL_ACCESO))
@@ -196,11 +188,9 @@ if __name__ == '__main__':
     print("="*50)
     print()
     
-    # Silenciar Flask COMPLETAMENTE
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
     
-    # Redirigir stdout para silenciar aún más
     import sys
     from contextlib import contextmanager
     
@@ -214,10 +204,8 @@ if __name__ == '__main__':
             finally:
                 sys.stdout = old_stdout
     
-    # Iniciar monitor en segundo plano
     monitor_thread = threading.Thread(target=monitor, daemon=True)
     monitor_thread.start()
     
-    # Iniciar servidor CON TODO SILENCIADO
     with suppress_output():
         app.run(host="0.0.0.0", port=5000, debug=False)
