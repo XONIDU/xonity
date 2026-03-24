@@ -8,6 +8,7 @@ import os
 import qrcode
 from io import StringIO
 import logging
+import socket
 
 app = Flask(__name__)
 
@@ -34,16 +35,26 @@ EMAIL = input("Tu Gmail: ").strip()
 TOKEN = input("Token de app (16 dígitos): ").strip()
 DESTINO = input("Correo destino: ").strip()
 
-def generar_qr():
-    """Genera un código QR con la información de contacto"""
-    info_contacto = f"XONITY - Contacto: {EMAIL} | Creador: Darian Camacho | Repositorio: github.com/XONIDU/xonity"
-    
+def obtener_ip_local():
+    """Obtiene la IP local de la máquina"""
+    try:
+        # Crear un socket temporal para obtener la IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
+def generar_qr_con_url(url):
+    """Genera un código QR con la URL de acceso"""
     qr = qrcode.QRCode(
         version=1,
         box_size=2,
         border=1
     )
-    qr.add_data(info_contacto)
+    qr.add_data(url)
     qr.make(fit=True)
     
     # Crear imagen QR en ASCII para terminal
@@ -126,7 +137,7 @@ def motion():
     last_motion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     registrar("Movimiento", "Detectado", last_motion)
-    enviar_correo("Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
+    enviar_correo("🚨 Movimiento detectado", f"Se detectó movimiento en el sensor IR a las {last_motion}")
     
     return jsonify({"status": "motion_received"})
 
@@ -162,19 +173,27 @@ if __name__ == '__main__':
     # Limpiar pantalla
     os.system('clear' if os.name == 'posix' else 'cls')
     
+    # Obtener IP local
+    IP_LOCAL = obtener_ip_local()
+    URL_ACCESO = f"http://{IP_LOCAL}:5000"
+    
     print("╔" + "═"*50 + "╗")
     print("║" + " "*18 + "XONITY v1.0" + " "*19 + "║")
     print("╚" + "═"*50 + "╝")
     print()
     
-    # Generar y mostrar QR code
-    print("ESCANEA EL CÓDIGO QR PARA MÁS INFORMACIÓN")
+    # Mostrar URL de acceso
+    print("🌐 ACCESO A LA INTERFAZ WEB:")
+    print(f"   Local: {URL_ACCESO}")
     print()
-    print(generar_qr())
+    
+    # Generar y mostrar QR code con la URL
+    print("📱 ESCANEA ESTE CÓDIGO QR PARA ACCEDER DESDE TU MÓVIL:")
     print()
-    print("Sistema de monitoreo IoT - Seguridad Residencial")
+    print(generar_qr_con_url(URL_ACCESO))
+    print()
+    print("🔒 Sistema de monitoreo IoT - Seguridad Residencial")
     print("="*50)
-    print("http://localhost:5050")
     print()
     
     # Silenciar Flask COMPLETAMENTE
