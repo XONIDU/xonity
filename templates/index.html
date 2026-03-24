@@ -148,7 +148,7 @@
             <!-- Estado de Conexión -->
             <div class="status-item">
                 <div class="label">📡 ESTADO DE CONEXIÓN</div>
-                {% set tiempo_sin_ping = (now() - last_ping) | int %}
+                {% set tiempo_sin_ping = (now().timestamp() - last_ping) | int %}
                 {% set conectado = tiempo_sin_ping <= ESP_TIMEOUT %}
                 
                 {% if conectado %}
