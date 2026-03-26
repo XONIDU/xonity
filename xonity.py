@@ -31,17 +31,17 @@ except FileNotFoundError:
 
 # --- Pedir credenciales de correo al iniciar ---
 print("\n" + "="*50)
-print("🔧 XONITY - CONFIGURACIÓN DE CORREO")
+print("XONITY - CONFIGURACIÓN DE CORREO")
 print("="*50)
-EMAIL = input("📧 Tu Gmail: ").strip()
-TOKEN = input("🔑 Token de app (16 dígitos): ").strip()
-DESTINO = input("📨 Correo destino: ").strip()
+EMAIL = input("Tu Gmail: ").strip()
+TOKEN = input("Token de app (16 dígitos): ").strip()
+DESTINO = input("Correo destino: ").strip()
 
 print("\n" + "="*50)
 print("✅ CORREO CONFIGURADO")
 print("="*50)
-print(f"📧 Cuenta: {EMAIL}")
-print(f"📨 Enviando a: {DESTINO}")
+print(f"Cuenta: {EMAIL}")
+print(f"Enviando a: {DESTINO}")
 print("="*50)
 
 def obtener_ip_local():
@@ -65,7 +65,7 @@ def generar_qr_con_url(url):
 def enviar_correo(asunto, mensaje):
     """Envía correo con soporte UTF-8 (tildes y caracteres especiales)"""
     try:
-        print(f"📧 [CORREO] Intentando enviar: {asunto}")
+        print(f"[CORREO] Intentando enviar: {asunto}")
         
         # Crear mensaje con codificación UTF-8
         msg = MIMEText(mensaje, 'plain', 'utf-8')
@@ -91,7 +91,7 @@ def registrar(tipo, estado, hora):
         nuevo_registro = pd.DataFrame([{"Tipo": tipo, "Estado": estado, "Hora": hora}])
         df = pd.concat([df, nuevo_registro], ignore_index=True)
         df.to_excel(EXCEL_FILE, index=False)
-        print(f"📊 [EXCEL] Registrado: {tipo} - {estado} a las {hora}")
+        print(f"[EXCEL] Registrado: {tipo} - {estado} a las {hora}")
     except Exception as e:
         print(f"❌ [EXCEL] Error: {e}")
 
@@ -103,7 +103,7 @@ def monitor():
     ultimo_correo_reconectado = 0
     COOLDOWN_CORREO = 300
     
-    print("📡 [MONITOR] Iniciado. Esperando pings del ESP32...")
+    print("[MONITOR] Iniciado. Esperando pings del ESP32...")
     
     while True:
         tiempo_sin_ping = time.time() - last_ping
@@ -115,14 +115,14 @@ def monitor():
             hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             if not conectado:
-                print(f"🔴 [MONITOR] ¡DESCONEXIÓN detectada! Último ping hace {tiempo_sin_ping:.0f}s")
+                print(f"[MONITOR] ¡DESCONEXIÓN detectada! Último ping hace {tiempo_sin_ping:.0f}s")
                 if tiempo_actual - ultimo_correo_desconectado > COOLDOWN_CORREO:
                     enviar_correo("ALERTA: ESP32 Desconectado", 
                                  f"El ESP32 se desconectó a las {hora}")
                     ultimo_correo_desconectado = tiempo_actual
                 registrar("Conexión", "Desconectado", hora)
             else:
-                print(f"🟢 [MONITOR] ¡RECONEXIÓN! ESP32 activo nuevamente")
+                print(f"[MONITOR] ¡RECONEXIÓN! ESP32 activo nuevamente")
                 if tiempo_actual - ultimo_correo_reconectado > COOLDOWN_CORREO:
                     enviar_correo("ALERTA: ESP32 Reconectado", 
                                  f"El ESP32 se reconectó a las {hora}")
@@ -146,7 +146,7 @@ def ping():
     last_ping = time.time()
     detected = False
     hora = datetime.now().strftime("%H:%M:%S")
-    print(f"📶 [PING] Recibido a las {hora}")
+    print(f"[PING] Recibido a las {hora}")
     return jsonify({"status": "ok"})
 
 @app.route('/motion', methods=['POST'])
@@ -156,7 +156,7 @@ def motion():
     detected = True
     last_motion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    print(f"🚨 [MOVIMIENTO] ¡DETECTADO! a las {last_motion}")
+    print(f"[MOVIMIENTO] ¡DETECTADO! a las {last_motion}")
     
     registrar("Movimiento", "Detectado", last_motion)
     enviar_correo("ALERTA: Movimiento detectado", 
@@ -170,7 +170,7 @@ def registrar_esp32():
     if data:
         mac = data.get('mac', 'desconocida')
         ip = data.get('ip', 'desconocida')
-        print(f"📱 [ESP32] Registrado - MAC: {mac}, IP: {ip}")
+        print(f"[ESP32] Registrado - MAC: {mac}, IP: {ip}")
         return jsonify({"estado": "ok", "mensaje": "Registro exitoso"})
     return jsonify({"estado": "error", "mensaje": "Datos inválidos"})
 
@@ -204,18 +204,18 @@ if __name__ == '__main__':
     print("╚" + "═"*50 + "╝")
     print()
     
-    print("🌐 ACCESO A LA INTERFAZ WEB:")
+    print("ACCESO A LA INTERFAZ WEB:")
     print(f"   Local: {URL_ACCESO}")
     print()
     
-    print("📱 ESCANEA ESTE CÓDIGO QR PARA ACCEDER DESDE TU MÓVIL:")
+    print("ESCANEA ESTE CÓDIGO QR PARA ACCEDER DESDE TU MÓVIL:")
     print()
     print(generar_qr_con_url(URL_ACCESO))
     print()
-    print("🔒 Sistema de monitoreo IoT - Seguridad Residencial")
+    print("Sistema de monitoreo IoT - Seguridad Residencial")
     print("="*50)
     print()
-    print("📡 MONITOR EN TERMINAL ACTIVO:")
+    print("MONITOR EN TERMINAL ACTIVO:")
     print("   - Esperando pings del ESP32...")
     print("   - Los eventos se mostrarán aquí en tiempo real")
     print("="*50)
