@@ -13,6 +13,8 @@ XONITY es un sistema de monitoreo residencial de bajo costo basado en ESP32 y se
 
 Está especialmente diseñado para ser económico, de código abierto y fácil de implementar en cualquier hogar.
 
+---
+
 ### Características principales:
 
 | Característica | Descripción |
@@ -159,12 +161,12 @@ Abre `esp32.ino` en Arduino IDE y configura:
 
 // ===== CONFIGURACIÓN DEL SERVIDOR =====
 // Opción 1: ACCESO REMOTO con Cloudflare Tunnel
-#define SERVER_HOST "ejemplo.trycloudflare.com"
+#define SERVER_URL "ejemplo.trycloudflare.com"
 #define SERVER_PORT 443
 #define USE_HTTPS true
 
 // Opción 2: RED LOCAL (para pruebas)
-// #define SERVER_HOST "192.168.1.84"
+// #define SERVER_URL "192.168.1.84"
 // #define SERVER_PORT 5000
 // #define USE_HTTPS false
 
@@ -192,6 +194,7 @@ cloudflared tunnel --url http://localhost:5000
 ```
 
 ### Salida esperada:
+
 ```
 Your quick Tunnel has been created! Visit it at:
 https://ejemplo-aleatorio-123.trycloudflare.com
@@ -205,9 +208,9 @@ Usa esta URL en la configuración del ESP32.
 
 | Evento | Asunto | Cooldown |
 |--------|--------|----------|
-| 🚨 **Movimiento** | "🚨 Movimiento detectado" | 10 seg (ESP32) |
-| ⚠️ **Desconexión** | "⚠️ ESP32 Desconectado" | 5 minutos |
-| 🔄 **Reconexión** | "🔄 ESP32 Reconectado" | 5 minutos |
+| 🚨 Movimiento | "ALERTA: Movimiento detectado" | 10 seg (ESP32) |
+| ⚠️ Desconexión | "ALERTA: ESP32 Desconectado" | 5 minutos |
+| 🔄 Reconexión | "ALERTA: ESP32 Reconectado" | 5 minutos |
 
 ---
 
@@ -241,20 +244,6 @@ Todos los eventos se guardan en `casa1.xlsx` con formato:
 ## 📱 Código QR
 
 Al iniciar el servidor, se genera automáticamente un código QR con la URL local. ¡Escanéalo con tu móvil para acceder rápidamente a la interfaz web!
-
-```
-📱 ESCANEA ESTE CÓDIGO QR PARA ACCEDER DESDE TU MÓVIL:
-
-██████████████████████████████████████████████████
-██████████████████████████████████████████████████
-████  ████  ████      ████  ████  ████  ████  ████
-████  ████  ████  ████  ████  ████  ████  ████  ████
-████  ████  ████      ████  ████  ████  ████  ████
-████  ████  ████  ████  ████  ████  ████  ████  ████
-████  ████  ████      ████  ████  ████  ████  ████
-██████████████████████████████████████████████████
-██████████████████████████████████████████████████
-```
 
 ---
 
@@ -296,22 +285,6 @@ Al iniciar el servidor, se genera automáticamente un código QR con la URL loca
 
 ---
 
-## 📊 Estadísticas del proyecto
-
-- ⭐ **Estrellas:** 0
-- 👀 **Observadores:** 1
-- 🍴 **Forks:** 0
-- 🏷️ **Releases:** 1 (v1.0)
-- 🐍 **Lenguajes:** Python 64%, HTML 36%
-
----
-
-## 📄 Licencia
-
-MIT License - Ver archivo `LICENSE`
-
----
-
 ## ✉️ Contacto y Créditos
 
 - **Proyecto:** XONITY
@@ -324,5 +297,5 @@ MIT License - Ver archivo `LICENSE`
 
 ---
 
-**XONITY v1.0** - Marzo 2026  
+**XONITY v4.2.0** - Marzo 2026  
 *"Tecnología accesible para seguridad residencial"*
