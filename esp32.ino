@@ -1,17 +1,20 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-// ===== CONFIGURACIÓN =====
+// ===== CONFIGURACION =====
 #define WIFI_SSID ""
 #define WIFI_PASS ""
 
-// === USAR LINK DEL TUNNEL ===
-#define SERVER_HOST "ejemplo.trycloudflare.com"  // Link del tunnel
-#define SERVER_PORT 443                           // Puerto HTTPS
+// ===== CONFIGURACION DEL SERVIDOR =====
+// ACCESO REMOTO POR DEFECTO (Cloudflare Tunnel)
+// Al ejecutar: cloudflared tunnel --url http://localhost:5000
+// Generara una URL como: https://ejemplo.trycloudflare.com
+#define SERVER_URL "ejemplo.trycloudflare.com"   // Cambiar por la URL del tunnel
+#define SERVER_PORT 443
 #define USE_HTTPS true
 
-// === O USAR IP LOCAL (COMENTADO) ===
-// #define SERVER_HOST "192.168.1.84"
+// Para usar IP local (descomentar para pruebas):
+// #define SERVER_URL "192.168.1.84"
 // #define SERVER_PORT 5000
 // #define USE_HTTPS false
 
@@ -19,7 +22,7 @@
 
 // ===== VARIABLES GLOBALES =====
 WiFiClient client;
-WiFiClientSecure secureClient;  // Para HTTPS
+WiFiClientSecure secureClient;
 String macAddress;
 String nodeIP;
 unsigned long lastPing = 0;
@@ -29,39 +32,36 @@ bool lastSensorState = false;
 const unsigned long PING_INTERVAL = 5000;
 const unsigned long MOTION_COOLDOWN = 10000;
 
-// ===== ENVIAR PETICIÓN HTTP/HTTPS =====
+// ===== ENVIAR PETICION HTTP/HTTPS =====
 bool sendHttpPost(const String& path, const String& data) {
     bool conectado = false;
     
     if (USE_HTTPS) {
-        // Configurar cliente HTTPS
-        secureClient.setInsecure();  // Acepta cualquier certificado
-        conectado = secureClient.connect(SERVER_HOST, SERVER_PORT);
+        secureClient.setInsecure();
+        conectado = secureClient.connect(SERVER_URL, SERVER_PORT);
     } else {
-        conectado = client.connect(SERVER_HOST, SERVER_PORT);
+        conectado = client.connect(SERVER_URL, SERVER_PORT);
     }
     
     if (!conectado) {
-        Serial.println("❌ No se pudo conectar al servidor");
+        Serial.println("No se pudo conectar al servidor");
         Serial.print("   Host: ");
-        Serial.print(SERVER_HOST);
+        Serial.print(SERVER_URL);
         Serial.print(":");
         Serial.println(SERVER_PORT);
         return false;
     }
     
-    // Usar el cliente apropiado
     WiFiClient *cli = USE_HTTPS ? (WiFiClient*)&secureClient : (WiFiClient*)&client;
     
     cli->println("POST " + path + " HTTP/1.1");
-    cli->println("Host: " + String(SERVER_HOST));
+    cli->println("Host: " + String(SERVER_URL) + ":" + String(SERVER_PORT));
     cli->println("Content-Type: application/x-www-form-urlencoded");
     cli->println("Content-Length: " + String(data.length()));
     cli->println("Connection: close");
     cli->println();
     cli->println(data);
     
-    // Esperar respuesta
     unsigned long timeout = millis();
     while (cli->connected() && !cli->available()) {
         if (millis() - timeout > 3000) {
@@ -71,17 +71,15 @@ bool sendHttpPost(const String& path, const String& data) {
         delay(10);
     }
     
-    // Leer respuesta (opcional)
     String response = "";
     while (cli->available()) {
         response += (char)cli->read();
     }
     
-    // Mostrar primeras líneas de respuesta
     if (response.length() > 0) {
         int endLine = response.indexOf('\n');
         if (endLine > 0) {
-            Serial.print("📥 Respuesta: ");
+            Serial.print("Respuesta: ");
             Serial.println(response.substring(0, endLine));
         }
     }
@@ -93,31 +91,31 @@ bool sendHttpPost(const String& path, const String& data) {
 // ===== ENVIAR PING =====
 void sendPing() {
     if (sendHttpPost("/ping", "ping=1")) {
-        Serial.println("📶 Ping enviado a " + String(SERVER_HOST));
+        Serial.println("Ping enviado a " + String(SERVER_URL) + ":" + String(SERVER_PORT));
     } else {
-        Serial.println("❌ Error enviando ping");
+        Serial.println("Error enviando ping");
     }
 }
 
 // ===== ENVIAR MOVIMIENTO =====
 void sendMotion() {
     if (sendHttpPost("/motion", "motion=1")) {
-        Serial.println("🚶 Movimiento reportado a " + String(SERVER_HOST));
+        Serial.println("Movimiento reportado a " + String(SERVER_URL) + ":" + String(SERVER_PORT));
     } else {
-        Serial.println("❌ Error reportando movimiento");
+        Serial.println("Error reportando movimiento");
     }
 }
 
-// ===== RESOLVER IP DEL HOST (DEBUG) =====
+// ===== RESOLVER IP DEL HOST =====
 void resolveHostIP() {
     IPAddress resolvedIP;
-    if (WiFi.hostByName(SERVER_HOST, resolvedIP)) {
-        Serial.print("🌐 Host resuelto: ");
-        Serial.print(SERVER_HOST);
-        Serial.print(" → ");
+    if (WiFi.hostByName(SERVER_URL, resolvedIP)) {
+        Serial.print("Host resuelto: ");
+        Serial.print(SERVER_URL);
+        Serial.print(" -> ");
         Serial.println(resolvedIP);
     } else {
-        Serial.println("❌ No se pudo resolver el host");
+        Serial.println("No se pudo resolver el host");
     }
 }
 
@@ -129,24 +127,22 @@ void setup() {
     pinMode(IR_SENSOR_PIN, INPUT);
     
     Serial.println("\n=================================");
-    Serial.println("🔧 XONITY - SENSOR IR CON LINK");
+    Serial.println("XONITY - SENSOR IR");
     Serial.println("=================================");
     
-    Serial.print("📡 Servidor: ");
-    Serial.print(SERVER_HOST);
+    Serial.print("Servidor: ");
+    Serial.print(SERVER_URL);
     Serial.print(":");
     Serial.println(SERVER_PORT);
-    Serial.print("🔒 HTTPS: ");
-    Serial.println(USE_HTTPS ? "Sí" : "No");
+    Serial.print("HTTPS: ");
+    Serial.println(USE_HTTPS ? "Si" : "No");
     
-    // Obtener MAC
     macAddress = WiFi.macAddress();
-    Serial.print("📱 MAC: ");
+    Serial.print("MAC: ");
     Serial.println(macAddress);
     
-    // Conectar WiFi
     WiFi.begin(WIFI_SSID, WIFI_PASS);
-    Serial.print("📡 Conectando WiFi");
+    Serial.print("Conectando WiFi");
     
     unsigned long startAttempt = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 20000) {
@@ -156,20 +152,18 @@ void setup() {
     
     if (WiFi.status() == WL_CONNECTED) {
         nodeIP = WiFi.localIP().toString();
-        Serial.println("\n✅ WiFi conectado!");
-        Serial.print("🌐 IP local ESP32: ");
+        Serial.println("\nWiFi conectado");
+        Serial.print("IP local ESP32: ");
         Serial.println(nodeIP);
         
-        // Resolver IP del host
         resolveHostIP();
         
-        // Ping inicial
         delay(1000);
         sendPing();
         lastPing = millis();
         
     } else {
-        Serial.println("\n❌ Error WiFi - Reiniciando...");
+        Serial.println("\nError WiFi - Reiniciando...");
         delay(3000);
         ESP.restart();
     }
@@ -194,7 +188,7 @@ void loop() {
     lastSensorState = currentState;
     
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("⚠️ WiFi desconectado, reconectando...");
+        Serial.println("WiFi desconectado, reconectando...");
         WiFi.reconnect();
         delay(2000);
     }
