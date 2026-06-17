@@ -3,26 +3,31 @@
 
 ## Dependencias Python:
 
-Windows:
-pip install flask pandas openpyxl qrcode
+flask
+pandas
+openpyxl
+qrcode
 
-Arch Linux:
-sudo pacman -S python-pip
-pip install flask pandas openpyxl qrcode --break-system-packages
+#Windows:
+#pip install flask pandas openpyxl qrcode
 
-Ubuntu / Debian:
-sudo apt update
-sudo apt install python3 python3-pip -y
-pip3 install flask pandas openpyxl qrcode --break-system-packages
+#Arch Linux:
+#sudo pacman -S python-pip
+#pip install flask pandas openpyxl qrcode --break-system-packages
+
+#Ubuntu / Debian:
+#sudo apt update
+#sudo apt install python3 python3-pip -y
+#pip3 install flask pandas openpyxl qrcode --break-system-packages
 
 ## Cloudflare Tunnel (opcional - para acceso remoto):
-Linux: https://github.com/cloudflare/cloudflared/releases
-Arch: sudo pacman -S cloudflared
-Uso: cloudflared tunnel --url http://localhost:5000
+#Linux: https://github.com/cloudflare/cloudflared/releases
+#Arch: sudo pacman -S cloudflared
+#Uso: cloudflared tunnel --url http://localhost:5000
 
 ## Ejecutar:
-python start.py
+#python start.py
 
 ##o
 
-python3 start.py
+#python3 start.py
