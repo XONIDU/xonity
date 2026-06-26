@@ -34,19 +34,20 @@ Está especialmente diseñado para ser económico, de código abierto y fácil d
 
 ## 📥 Instalación
 
-Clona el repositorio desde GitHub:
+### Opción 1 - Clonar desde GitHub
 
 ```bash
 git clone https://github.com/XONIDU/xonity.git
 cd xonity
 ```
 
-### Opción 2 – Comando `xoninstall` (recomendado para futuras herramientas XONI)
+### Opción 2 - Comando `xoninstall` (recomendado para futuras herramientas XONI)
 
-Agrega la siguiente función a tu `~/.bashrc` con un solo comando:
+Agrega la siguiente función a tu `~/.bashrc`:
 
 ```bash
-echo 'xoninstall() { if [ -z "$1" ]; then echo "Uso: xoninstall <repo>"; echo "Ej: xoninstall xoniran"; else git clone "https://github>
+echo 'xoninstall() { if [ -z "$1" ]; then echo "Uso: xoninstall <repo>"; echo "Ej: xoninstall xoniran"; else git clone "https://github.com/XONIDU/$1.git"; fi }' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 Luego simplemente escribe:
@@ -58,7 +59,63 @@ pip install -r requisitos.txt
 python start.py
 ```
 
-> **Nota:** Esta función te servirá para instalar cualquier otra herramienta futura de XONIDU (por ejemplo `xoninstall xonity`).
+> **Nota:** Esta función te servirá para instalar cualquier otra herramienta futura de XONIDU (por ejemplo `xoninstall xonichat`).
+
+### Opción 3 - Windows con `INICIAR_XONITY.bat` (recomendado)
+
+En Windows, simplemente haz doble clic en el archivo `INICIAR_XONITY.bat` incluido en el proyecto. Este script:
+
+- Solicita automáticamente permisos de administrador
+- Verifica e instala las dependencias necesarias
+- Ejecuta el servidor XONITY
+- Muestra la URL de acceso local
+
+El archivo `INICIAR_XONITY.bat` contiene:
+
+```batch
+@echo off
+title XONITY 2026 - Sistema de Monitoreo con ESP32
+color 0A
+
+:: ============================================================
+:: SOLICITAR PERMISOS DE ADMINISTRADOR
+:: ============================================================
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Solicitando permisos de administrador...
+    echo.
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    del "%temp%\getadmin.vbs"
+    exit /B
+)
+
+:: ============================================================
+:: EJECUTAR start.py CON PERMISOS DE ADMINISTRADOR
+:: ============================================================
+cls
+echo ============================================================
+echo           XONITY 2026 - Sistema de Monitoreo con ESP32
+echo              (Modo Administrador)
+echo ============================================================
+echo.
+echo [OK] Permisos de administrador obtenidos
+echo.
+echo Iniciando XONITY...
+echo.
+echo [INFO] Sistema de monitoreo residencial con ESP32
+echo [INFO] Deteccion de movimiento y alertas por correo
+echo [INFO] Accede a: http://localhost:5000
+echo.
+echo Presiona Ctrl+C para detener el servidor
+echo ============================================================
+echo.
+
+python start.py
+
+pause
+```
 
 ---
 
@@ -133,6 +190,11 @@ pip3 install -r requisitos.txt
 
 ### 🪟 Windows
 
+**Opción A - Con el script .bat (recomendado):**
+- Haz doble clic en `INICIAR_XONITY.bat`
+- El script instalará las dependencias automáticamente
+
+**Opción B - Manual:**
 1. Instala Python 3 desde [python.org](https://www.python.org/downloads/)
 2. Abre una terminal (cmd o PowerShell) y ejecuta:
 
@@ -151,6 +213,8 @@ python start.py
 # o
 python3 start.py
 ```
+
+En Windows, también puedes hacer doble clic en `INICIAR_XONITY.bat`.
 
 El lanzador verificará las dependencias y automáticamente ejecutará `xonity.py`.
 
@@ -256,6 +320,7 @@ Todos los eventos se guardan en `casa1.xlsx` con formato:
 | `requisitos.txt` | Dependencias Python |
 | `diagrama.pdf` | Diagrama de conexiones |
 | `README.md` | Este archivo de documentación |
+| `INICIAR_XONITY.bat` | Script para Windows (doble clic para ejecutar) |
 | `casa1.xlsx` | Registro automático de eventos (se genera solo) |
 
 ---
@@ -316,5 +381,5 @@ Al iniciar el servidor, se genera automáticamente un código QR con la URL loca
 
 ---
 
-**XONITY v4.2.0** - Marzo 2026  
+**XONITY v1.0** - Marzo 2026  
 *"Tecnología accesible para seguridad residencial"*
