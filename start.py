@@ -5,7 +5,7 @@
 XONITY 2026 - Lanzador Universal para Sistema de Monitoreo con ESP32
 Este script verifica dependencias y ejecuta xonity.py
 Desarrollado por: Darian Alberto Camacho Salas
-#Somos XONINDU
+Organizacion: XONINDU
 """
 
 import subprocess
